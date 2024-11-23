@@ -2,7 +2,37 @@
 pragma solidity ^0.8.27;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "./BondingCurve.sol";
 
 contract RampToken is ERC20 {
-    constructor(string memory name_, string memory symbol_) ERC20(name_, symbol_) {}
+    BondingCurve public bondingCurve;
+
+    error UnauthorizedAccess();
+
+    constructor(string memory name_, string memory symbol_) ERC20(name_, symbol_) payable {
+        BondingCurve _bondingCurve = new BondingCurve(msg.sender, address(this));
+        _bondingCurve = bondingCurve;
+
+        if (msg.value > 0) {
+            _initialBuyForDeployer{value: msg.value}();
+        }
+    }
+
+    function _initialBuyForDeployer() internal payable {
+        bondingCurve.buy{value: msg.value}();
+    }
+
+    function mint(address _to, uint256 _value) external {
+        if (msg.sender != address(bondingCurve)) {
+            revert UnauthorizedAccess();
+        }
+        _mint(_to, _value);
+    }
+
+    function burn(address _from, uint256 _value) external {
+        if (msg.sender != address(bondingCurve)) {
+            revert UnauthorizedAccess();
+        }
+        _burn(_from, _value);
+    }
 }
