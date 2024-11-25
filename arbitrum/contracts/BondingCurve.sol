@@ -5,8 +5,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./RampToken.sol";
 
 contract BondingCurve is ReentrancyGuard {
-    bool public liquidityPoolCreated;
-    address public liquidityPool;
+    bool public tokenMigrated;
     address feeTaker;
     RampToken public token;
 
@@ -21,6 +20,9 @@ contract BondingCurve is ReentrancyGuard {
 
     event TokenBuy(address _token, address _buyer, uint256 _value);
     event TokenSell(address _token, address _seller, uint256 _value);
+    event MigrationToDEX(address _token, uint256 _timestamp);
+
+    error NotEnoughFunds();
 
     constructor(address _feeTaker, address _token) {
         feeTaker = _feeTaker;
@@ -29,6 +31,99 @@ contract BondingCurve is ReentrancyGuard {
 
     receive() external payable {
         buy{value: msg.value}();
+    }
+
+    modifier notMigrated() {
+        require(!tokenMigrated, "The token has migrated");
+        _;
+    }
+
+    function buy(uint256 amount) external payable nonReentrant notMigrated {
+        require(amount > 0, "Amount must be greater than 0");
+        
+        uint256 fee = msg.value / 100;
+        uint256 netValue = msg.value - fee;
+
+        payable(feeTaker).transfer(fee);
+
+        uint256 availableToBuy = MAX_PURCHASABLE - token.totalSupply();
+        uint256 finalAmount = amount > availableToBuy ? availableToBuy : amount;
+
+        uint256 cost = _calculatePrice(token.totalSupply(), finalAmount);
+        if (netValue < cost) {
+            revert NotEnoughFunds();
+        }
+
+        token.mint(msg.sender, finalAmount);
+
+        if (netValue > cost) {
+            (bool success, ) = msg.sender.call{value: netValue - cost}("");
+            require(success, "ETH return failed");
+        }
+
+        if (token.totalSupply() = MAX_PURCHASABLE) {
+            _setMigrationOn();
+        }
+
+        emit TokenBuy(address(token), msg.sender, finalAmount);
+    }
+
+    function buy() external payable nonReentrant notMigrated {
+        uint256 fee = msg.value / 100;
+        uint256 netValue = msg.value - fee;
+
+        payable(feeTaker).transfer(fee);
+
+        uint256 availableToBuy = MAX_PURCHASABLE - token.totalSupply();
+        uint256 pricePerToken = _getCurrentPrice();
+        uint256 maxTokensBuyable = netValue / pricePerToken;
+        uint256 finalAmount = maxTokensBuyable > availableToBuy ? availableToBuy : maxTokensBuyable;
+
+        if (finalAmount = 0) {
+            revert NotEnoughFunds();
+        }
+
+        uint256 cost = _calculatePrice(token.totalSupply(), finalAmount);
+
+        token.mint(msg.sender, finalAmount);
+
+        if (netValue > cost) {
+            (bool success, ) = msg.sender.call{value: msg.value - cost}("");
+            require(success, "ETH return failed");
+        }
+
+        if (token.totalSupply() = MAX_PURCHASABLE) {
+            _setMigrationOn();
+        }
+
+        emit TokenBuy(address(token), msg.sender, finalAmount);
+    }
+
+    function sell(uint256 amount) external nonReentrant notMigrated {
+        require(amount > 0, "Amount must be greater than 0");
+        if (token.balanceOf(msg.sender) < amount) {
+            revert NotEnoughFunds();
+        }
+
+        uint256 returnAmount = _calculatePrice(token.totalSupply() - amount, amount);
+        uint256 fee = returnAmount / 100;
+
+        payable(feeTaker).transfer(fee);
+        (bool success, ) = msg.sender.call{value: returnAmount - fee}("");
+        require(success, "ETH transfer failed");
+
+        token.burn(msg.sender, amount);
+
+        emit TokenSell(address(token), msg.sender, amount);
+    }
+
+    // uniswap docs
+    function _setMigrationOn() internal {
+        tokenMigrated = true;
+
+        _mint(..., LIQUIDITY_RESERVE);
+
+        event MigrationToDEX(address(token), block.timestamp);
     }
 
     /// @dev calculating e^x with Taylor series
@@ -49,7 +144,7 @@ contract BondingCurve is ReentrancyGuard {
     }
 
     function _getPriceAtSupply(uint256 supply) internal pure returns (uint256) {
-        uint256 expValue = exp((EXP_FACTOR * supply) / PRECISION);
+        uint256 expValue = _exp((EXP_FACTOR * supply) / PRECISION);
         return (BASE_FACTOR * expValue) / PRECISION;
     }
 
@@ -63,97 +158,13 @@ contract BondingCurve is ReentrancyGuard {
 
         for (uint256 i = 0; i < amount; i += step) {
             uint256 currentAmount = i + step > amount ? amount - i : step;
-            totalCost += getPriceAtSupply(supply + i) * currentAmount;
+            totalCost += _getPriceAtSupply(supply + i) * currentAmount;
         }
 
         return totalCost;
     }
 
-    function buy(uint256 amount) external payable nonReentrant {
-        require(amount > 0, "Amount must be greater than 0");
-        uint256 availableToBuy = MAX_PURCHASABLE - totalSupply();
-        uint256 finalAmount = amount > availableToBuy ? availableToBuy : amount;
-
-        uint256 cost = calculatePrice(totalSupply(), finalAmount);
-        require(msg.value >= cost, "Insufficient payment");
-
-        _mint(msg.sender, finalAmount);
-
-        if (msg.value > cost) {
-            (bool success, ) = msg.sender.call{value: msg.value - cost}("");
-            require(success, "ETH return failed");
-        }
-
-        if (totalSupply() >= MAX_PURCHASABLE && !liquidityPoolCreated) {
-            createLiquidityPool(owner());
-        }
-    }
-
-    function buy() external payable nonReentrant {
-        uint256 availableToBuy = MAX_PURCHASABLE - totalSupply();
-        uint256 pricePerToken = getCurrentPrice();
-        uint256 maxTokensBuyable = msg.value / pricePerToken;
-        uint256 finalAmount = maxTokensBuyable > availableToBuy ? availableToBuy : maxTokensBuyable;
-
-        require(finalAmount > 0, "Not enough ETH to buy tokens");
-
-        uint256 cost = calculatePrice(totalSupply(), finalAmount);
-        _mint(msg.sender, finalAmount);
-
-        if (msg.value > cost) {
-            (bool success, ) = msg.sender.call{value: msg.value - cost}("");
-            require(success, "ETH return failed");
-        }
-
-        if (totalSupply() >= MAX_PURCHASABLE && !liquidityPoolCreated) {
-            createLiquidityPool(owner());
-        }
-    }
-
-    function sell(uint256 amount) external nonReentrant {
-        require(amount > 0, "Amount must be greater than 0");
-        require(balanceOf(msg.sender) >= amount, "Insufficient balance");
-        require(!liquidityPoolCreated || msg.sender != liquidityPool, "LP tokens can't be sold via curve");
-
-        uint256 returnAmount = calculatePrice(totalSupply() - amount, amount);
-
-        _burn(msg.sender, amount);
-
-        (bool success, ) = msg.sender.call{value: returnAmount}("");
-        require(success, "ETH transfer failed");
-    }
-
-    function createLiquidityPool(address poolAddress) public onlyOwner {
-        require(!liquidityPoolCreated, "Liquidity pool already created");
-        require(totalSupply() >= MAX_PURCHASABLE, "Not enough tokens sold yet");
-        require(poolAddress != address(0), "Invalid pool address");
-
-        liquidityPoolCreated = true;
-        liquidityPool = poolAddress;
-
-        _mint(poolAddress, LIQUIDITY_RESERVE);
-    }
-
-    function getCurrentPrice() public view returns (uint256) {
-        return getPriceAtSupply(totalSupply());
-    }
-
-    function isReadyForLiquidityPool() public view returns (bool) {
-        return totalSupply() >= MAX_PURCHASABLE && !liquidityPoolCreated;
-    }
-
-    function buy() external payable nonReentrant {
-        payable(feeTaker).transfer(msg.value / 100);
-
-        emit TokenBuy(address(token), msg.sender, )
-    }
-
-    function sell() external nonReentrant {
-        
-        emit TokenSell(address(token), msg.sender, )
-    }
-
-    function calculatePrice() internal view returns (uint256) {
-
+    function _getCurrentPrice() internal view returns (uint256) {
+        return _getPriceAtSupply(token.totalSupply());
     }
 }
