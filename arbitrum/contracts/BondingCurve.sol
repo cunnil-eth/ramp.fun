@@ -1,13 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
+pragma abicoder v2;
 
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
+import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
+import '@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol';
+import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol';
 import "./RampToken.sol";
+import "./interfaces/IWrappedNativeToken.sol";
 
 contract BondingCurve is ReentrancyGuard {
     bool public tokenMigrated;
     address feeTaker;
     RampToken public token;
+    address constant public UNISWAP_NFT_POS_MANAGER = 0xC36442b4a4522E871399CD717aBDD847Ab11FE88;
+    address constant public WETH9 = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1;
+    address constant public UNISWAP_FACTORY = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
 
     /// @dev Constants for exponential curve formula: y = 0.000001 * e^(0.00000001x)
     uint256 public constant BASE_FACTOR = 1e12;       // 0.000001 * 1e18
@@ -20,7 +29,7 @@ contract BondingCurve is ReentrancyGuard {
 
     event TokenBuy(address _token, address _buyer, uint256 _value);
     event TokenSell(address _token, address _seller, uint256 _value);
-    event MigrationToDEX(address _token, uint256 _timestamp);
+    event MigrationToDEX(address _token, uint256 _erc721TokenId, uint256 _timestamp);
 
     error NotEnoughFunds();
 
@@ -117,13 +126,43 @@ contract BondingCurve is ReentrancyGuard {
         emit TokenSell(address(token), msg.sender, amount);
     }
 
-    // uniswap docs
     function _setMigrationOn() internal {
         tokenMigrated = true;
 
-        _mint(..., LIQUIDITY_RESERVE);
+        //creating and initializing pool
+        uint24 poolFee = 5000;
+        uint160 sqrtPriceX96 =  (MAX_PURCHASABLE / address(this).balance) ** 0.5;
+        address pool = IUniswapV3Factory(UNISWAP_FACTORY).createPool(address(token), WETH9, poolFee);
+        IUniswapV3Pool(pool).initialize(sqrtPriceX96);
 
-        event MigrationToDEX(address(token), block.timestamp);
+        //mint a position
+        uint256 amount0ToMint = LIQUIDITY_RESERVE;
+        uint256 amount1ToMint = address(this).balance / (MAX_PURCHASABLE / LIQUIDITY_RESERVE);
+
+        IWrappedNativeToken.deposit{value: amount1ToMint}();
+        token.mint(address(this), LIQUIDITY_RESERVE);
+
+        TransferHelper.safeApprove(address(token), UNISWAP_NFT_POS_MANAGER, amount0ToMint);
+        TransferHelper.safeApprove(WETH9, UNISWAP_NFT_POS_MANAGER, amount1ToMint);
+        INonfungiblePositionManager(UNISWAP_NFT_POS_MANAGER).MintParams memory params =
+            INonfungiblePositionManager(UNISWAP_NFT_POS_MANAGER).MintParams({
+                token0: token,
+                token1: WETH9,
+                fee: poolFee,
+                tickLower: -887272,
+                tickUpper: 887272,
+                amount0Desired: amount0ToMint,
+                amount1Desired: amount1ToMint,
+                amount0Min: 0,
+                amount1Min: 0,
+                recipient: feeTaker,
+                deadline: block.timestamp
+            });
+        (tokenId, , , ) = INonfungiblePositionManager(UNISWAP_NFT_POS_MANAGER).mint(params);
+
+        payable(address(feeTaker)).transfer(address(this).balance);
+
+        event MigrationToDEX(address(token), tokenId, block.timestamp);
     }
 
     /// @dev calculating e^x with Taylor series
