@@ -140,7 +140,7 @@ contract BondingCurve is ReentrancyGuard {
         uint256 amount1ToMint = address(this).balance / (MAX_PURCHASABLE / LIQUIDITY_RESERVE);
 
         IWrappedNativeToken.deposit{value: amount1ToMint}();
-        token.mint(address(this), LIQUIDITY_RESERVE);
+        token.mint(address(this), amount0ToMint);
 
         TransferHelper.safeApprove(address(token), UNISWAP_NFT_POS_MANAGER, amount0ToMint);
         TransferHelper.safeApprove(WETH9, UNISWAP_NFT_POS_MANAGER, amount1ToMint);
@@ -162,7 +162,7 @@ contract BondingCurve is ReentrancyGuard {
 
         payable(address(feeTaker)).transfer(address(this).balance);
 
-        event MigrationToDEX(address(token), tokenId, block.timestamp);
+        emit MigrationToDEX(address(token), tokenId, block.timestamp);
     }
 
     /// @dev calculating e^x with Taylor series
