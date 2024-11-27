@@ -1,5 +1,5 @@
 # ramp.fun
-Pump.fun but not so fun on Ethereum
+Pump.fun but not so fun on Arbitrum
 
 # Solidity
 The solidty part consists of 3 essential contracts:
