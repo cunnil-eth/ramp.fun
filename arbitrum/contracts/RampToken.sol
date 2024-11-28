@@ -18,21 +18,22 @@ contract RampToken is ERC20 {
         }
     }
 
+    modifier onlyCurve() {
+        if (msg.sender != address(bondingCurve)) {
+            revert UnauthorizedAccess();
+        }
+        _;
+    }
+
     function _initialBuyForDeployer() internal payable {
         bondingCurve.buy{value: msg.value}();
     }
 
-    function mint(address _to, uint256 _value) external {
-        if (msg.sender != address(bondingCurve)) {
-            revert UnauthorizedAccess();
-        }
+    function mint(address _to, uint256 _value) external onlyCurve {
         _mint(_to, _value);
     }
 
-    function burn(address _from, uint256 _value) external {
-        if (msg.sender != address(bondingCurve)) {
-            revert UnauthorizedAccess();
-        }
+    function burn(address _from, uint256 _value) external onlyCurve {
         _burn(_from, _value);
     }
 }
