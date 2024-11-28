@@ -29,6 +29,7 @@ contract BondingCurve is ReentrancyGuard {
 
     event TokenBuy(address _token, address _buyer, uint256 _value);
     event TokenSell(address _token, address _seller, uint256 _value);
+    event AwaitingForMigration(address _token, uint256 _timestamp);
     event MigrationToDEX(address _token, uint256 _erc721TokenId, uint256 _timestamp);
 
     error NotEnoughFunds();
@@ -129,6 +130,13 @@ contract BondingCurve is ReentrancyGuard {
     function _setMigrationOn() internal {
         tokenMigrated = true;
 
+        (bool success, ) = feeTaker.call(abi.encodeWithSignature("addToQueueForMigration()"));
+        require(success, "Migration failed");
+
+        emit AwaitingForMigration(address(token), tokenId, block.timestamp);
+    }
+
+    function migrateToDex() external {
         //creating and initializing pool
         uint24 poolFee = 5000;
         uint160 sqrtPriceX96 =  (MAX_PURCHASABLE / address(this).balance) ** 0.5;
