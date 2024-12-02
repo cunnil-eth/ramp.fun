@@ -13,9 +13,19 @@ describe("Rampfun", function() {
 
     it("should deploy token", async function () {
         const { rampfun } = await loadFixture(deploy);
+        const [owner] = await ethers.getSigners();
 
         const tokenDeployTx = await rampfun.deployToken("TRATATA", "TRA");
 
-        await tokenDeployTx.wait()
+        await tokenDeployTx.wait();
+
+        const tokenAddress = precomputeAddress(rampfun);
     })
+
+    async function precomputeAddress(rampfun, nonce = 1) {
+        return await ethers.getCreateAddress({
+            from: rampfun.getAddress(),
+            nonce
+        })
+    }
 })
