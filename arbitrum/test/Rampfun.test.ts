@@ -1,4 +1,6 @@
-const { loadFixture, anyValue, ethers, expect } = require("./setup");
+import { BaseContract, ContractTransactionResponse } from "ethers";
+import { loadFixture, anyValue, ethers, expect } from "./setup";
+
 
 describe("Rampfun", function() {
     async function deploy() {
@@ -22,9 +24,9 @@ describe("Rampfun", function() {
         const tokenAddress = precomputeAddress(rampfun);
     })
 
-    async function precomputeAddress(rampfun, nonce = 1) {
+    async function precomputeAddress(rampfun : BaseContract, nonce = 1) : Promise<string> {
         return await ethers.getCreateAddress({
-            from: rampfun.getAddress(),
+            from: await rampfun.getAddress(),
             nonce
         })
     }

@@ -14,9 +14,9 @@ contract BondingCurve is ReentrancyGuard {
     bool public tokenMigrated;
     address feeTaker;
     RampToken public token;
-    address constant public UNISWAP_NFT_POS_MANAGER = 0xC36442b4a4522E871399CD717aBDD847Ab11FE88;
-    address constant public WETH9 = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1;
-    address constant public UNISWAP_FACTORY = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
+    address public constant UNISWAP_NFT_POS_MANAGER = 0xC36442b4a4522E871399CD717aBDD847Ab11FE88;
+    address public constant WETH9 = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1;
+    address public constant UNISWAP_FACTORY = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
 
     /// @dev Constants for exponential curve formula: y = 0.000001 * e^(0.00000001x)
     uint256 public constant BASE_FACTOR = 1e12;       // 0.000001 * 1e18
@@ -39,8 +39,9 @@ contract BondingCurve is ReentrancyGuard {
         token = _token;
     }
 
+    //@audit cannot transfer value to internal function
     receive() external payable {
-        // buy{value: msg.value}();
+        // buy{value: msg.value}(); 
     }
 
     modifier notMigrated() {
