@@ -6,16 +6,14 @@ import "./BondingCurve.sol";
 
 contract RampToken is ERC20 {
     BondingCurve public bondingCurve;
+    address public deployer;
 
     error UnauthorizedAccess();
 
-    constructor(string memory name_, string memory symbol_) ERC20(name_, symbol_) payable {
+    constructor(string memory name_, string memory symbol_, address _deployer) ERC20(name_, symbol_) {
         BondingCurve _bondingCurve = new BondingCurve(msg.sender, this);
         bondingCurve = _bondingCurve;
-
-        if (msg.value > 0) {
-            bondingCurve.buy{value: msg.value}();
-        }
+        deployer = _deployer;
     }
 
     modifier onlyCurve() {

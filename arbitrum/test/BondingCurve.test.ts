@@ -2,7 +2,7 @@ import { BaseContract } from "ethers";
 import { loadFixture,/* time, SignerWithAddress, anyValue,*/ ethers, expect } from "./setup";
 import { BondingCurve__factory, RampToken__factory } from "../typechain-types";
 
-describe("Rampfun", function() {
+describe("BondingCurve", function() {
     async function deploy() {
         const [ owner, deployer, buyer ] = await ethers.getSigners();
         
@@ -32,16 +32,17 @@ describe("Rampfun", function() {
 
         const curve = await BondingCurve__factory.connect(curveAddress, buyer);
 
-        const etherAmount = ethers.parseEther("50");
-        const fee = ethers.parseEther("0.00001");
+        const etherAmount = 0.001;
+        const wei = ethers.parseEther(etherAmount.toString());
+        const fee = ethers.parseEther((etherAmount/100).toString());
 
-        const buyTx = await curve["buy()"]({value: etherAmount});
+        const buyTx = await curve["buy()"]({value: wei});
 
-        await expect(buyTx).to.changeEtherBalances([buyer, curve, rampfun], [-etherAmount, etherAmount - fee, fee])
-        await expect(buyTx).to.changeTokenBalance(token, buyer, 800000000)
+        await expect(buyTx).to.changeEtherBalances([buyer, curve, rampfun], [-wei, wei - fee, fee]);
+        await expect(buyTx).to.changeTokenBalance(token, buyer, await token.totalSupply());
         await expect(buyTx).to.emit(curve, "TokenBuy").withArgs(
-            tokenAddress, buyer, 800000000
-        )
+            tokenAddress, buyer, await token.totalSupply()
+        );
         expect(curve["buy(uint256)"](1000)).to.be.revertedWithCustomError(curve, "NotEnoughFunds")
     })
 

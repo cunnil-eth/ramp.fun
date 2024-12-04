@@ -98,18 +98,29 @@ contract BondingCurve is ReentrancyGuard {
 
         uint256 cost = _calculatePrice(token.totalSupply(), finalAmount);
 
-        token.mint(msg.sender, finalAmount);
+        //@note implementation of initial deployer's buy
+        if (msg.sender == feeTaker) {
+            token.mint(token.deployer(), finalAmount);
 
-        if (netValue > cost) {
-            (bool success, ) = msg.sender.call{value: msg.value - cost}("");
-            require(success, "ETH return failed");
-        }
+            if (netValue > cost) {
+                (bool success, ) = token.deployer().call{value: netValue - cost}("");
+                require(success, "ETH return failed");
+            }
 
+            emit TokenBuy(address(token), token.deployer(), finalAmount);
+        } else {
+            token.mint(msg.sender, finalAmount);
+
+            if (netValue > cost) {
+                (bool success, ) = msg.sender.call{value: netValue - cost}("");
+                require(success, "ETH return failed");
+            }
+
+            emit TokenBuy(address(token), msg.sender, finalAmount);
+        } 
         if (token.totalSupply() == MAX_PURCHASABLE) {
             _setMigrationOn();
         }
-
-        emit TokenBuy(address(token), msg.sender, finalAmount);
     }
 
     function sell(uint256 amount) external nonReentrant notMigrated {

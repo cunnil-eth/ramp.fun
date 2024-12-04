@@ -56,8 +56,8 @@ describe("Rampfun", function() {
 
         expect(curveAddress).to.eq(await curve.getAddress());
     })
-    //@audit initial buy doesn't work
-    /*it("allows a token deployer to make initial buy", async function () {
+    //@todo more expect on balance change
+    it("allows a token deployer to make initial buy", async function () {
         const { rampfun, deployer } = await loadFixture(deploy);
 
         const _name = "TRATATA";
@@ -79,12 +79,12 @@ describe("Rampfun", function() {
             deployer, tokenAddress, _name, _symbol
         );
         await expect(tokenDeployTx).to.emit(curve, "TokenBuy").withArgs(
-            tokenAddress, deployer, 990
+            tokenAddress, deployer, await token.totalSupply()
         );
-        //await expect(tokenDeployTx).to.changeEtherBalance(deployer, -etherAmount);
-    })*/
+        await expect(tokenDeployTx).to.changeEtherBalance(deployer, -etherAmount);
+    })
 
-    it("should withdraw for owner", async function () {
+    it("allows withdrawal for the owner", async function () {
         const { rampfun, owner, deployer } = await loadFixture(deploy);
 
         const etherAmount = ethers.parseEther("1");

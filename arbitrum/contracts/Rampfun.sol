@@ -26,9 +26,15 @@ contract Rampfun is Ownable, IERC721Receiver {
     }
 
     function deployToken(string calldata _name, string calldata _ticker) public payable {
-        RampToken token = new RampToken{value: msg.value}(_name, _ticker);
+        RampToken token = new RampToken(_name, _ticker, msg.sender);
 
-        bondingCurves[address(token.bondingCurve())] = CurveStatus.Created;
+        address _bondingCurve = address(token.bondingCurve());
+        bondingCurves[_bondingCurve] = CurveStatus.Created;
+
+        if (msg.value > 0) {
+            (bool success, ) = _bondingCurve.call{value: msg.value}(abi.encodeWithSignature("buy()"));
+            require(success, "Deploy and initial buy failed");
+        }
 
         emit TokenDeployed(msg.sender, address(token), _name, _ticker);
     }
