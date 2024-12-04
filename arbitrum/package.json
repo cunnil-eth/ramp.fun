@@ -1,12 +1,14 @@
 {
-  "name": "hardhat-project",
+  "name": "ramp.fun",
   "devDependencies": {
+    "@eslint/js": "^9.16.0",
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
-    "hardhat": "^2.22.16"
+    "eslint": "^9.16.0",
+    "globals": "^15.13.0",
+    "hardhat": "^2.22.16",
+    "typescript-eslint": "^8.17.0"
   },
   "dependencies": {
-    "@openzeppelin/contracts": "^5.1.0",
-    "@uniswap/v3-core": "^1.0.1",
-    "@uniswap/v3-periphery": "^1.4.4"
+    "@openzeppelin/contracts": "^5.1.0"
   }
 }

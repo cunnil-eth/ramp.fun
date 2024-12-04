@@ -2,11 +2,11 @@
 pragma solidity ^0.8.27;
 pragma abicoder v2;
 
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
-import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
-import '@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol';
-import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol';
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+//import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
+//import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
+//import '@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol';
+//import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol';
 import "./RampToken.sol";
 import "./interfaces/IWrappedNativeToken.sol";
 
@@ -14,12 +14,12 @@ contract BondingCurve is ReentrancyGuard {
     bool public tokenMigrated;
     address feeTaker;
     RampToken public token;
-    address constant public UNISWAP_NFT_POS_MANAGER = 0xC36442b4a4522E871399CD717aBDD847Ab11FE88;
-    address constant public WETH9 = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1;
-    address constant public UNISWAP_FACTORY = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
+    address public constant UNISWAP_NFT_POS_MANAGER = 0xC36442b4a4522E871399CD717aBDD847Ab11FE88;
+    address public constant WETH9 = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1;
+    address public constant UNISWAP_FACTORY = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
 
     /// @dev Constants for exponential curve formula: y = 0.000001 * e^(0.00000001x)
-    uint256 public constant BASE_FACTOR = 1e12;       // 0.000001 * 1e18
+    uint256 public constant BASE_FACTOR = 4e10;       //@note initial price
     uint256 public constant EXP_FACTOR = 1e10;        // 0.00000001 * 1e18
     uint256 public constant MAX_SUPPLY = 1e9;         
     uint256 public constant LIQUIDITY_RESERVE = 2e8;  
@@ -30,17 +30,18 @@ contract BondingCurve is ReentrancyGuard {
     event TokenBuy(address _token, address _buyer, uint256 _value);
     event TokenSell(address _token, address _seller, uint256 _value);
     event AwaitingForMigration(address _token, uint256 _timestamp);
-    event MigrationToDEX(address _token, uint256 _erc721TokenId, uint256 _timestamp);
+    event MigrationToDEX(address _token, uint256 _timestamp);
 
     error NotEnoughFunds();
 
-    constructor(address _feeTaker, address _token) {
+    constructor(address _feeTaker, RampToken _token) {
         feeTaker = _feeTaker;
-        token = RampToken(_token);
+        token = _token;
     }
 
+    //@audit cannot transfer value to internal function
     receive() external payable {
-        buy{value: msg.value}();
+        // buy{value: msg.value}(); 
     }
 
     modifier notMigrated() {
@@ -54,7 +55,8 @@ contract BondingCurve is ReentrancyGuard {
         uint256 fee = msg.value / 100;
         uint256 netValue = msg.value - fee;
 
-        payable(feeTaker).transfer(fee);
+        (bool success0, ) = feeTaker.call{value: fee}("");
+        require(success0, "Buy failed");
 
         uint256 availableToBuy = MAX_PURCHASABLE - token.totalSupply();
         uint256 finalAmount = amount > availableToBuy ? availableToBuy : amount;
@@ -71,7 +73,7 @@ contract BondingCurve is ReentrancyGuard {
             require(success, "ETH return failed");
         }
 
-        if (token.totalSupply() = MAX_PURCHASABLE) {
+        if (token.totalSupply() == MAX_PURCHASABLE) {
             _setMigrationOn();
         }
 
@@ -82,14 +84,15 @@ contract BondingCurve is ReentrancyGuard {
         uint256 fee = msg.value / 100;
         uint256 netValue = msg.value - fee;
 
-        payable(feeTaker).transfer(fee);
+        (bool success0, ) = feeTaker.call{value: fee}("");
+        require(success0, "Buy failed");
 
         uint256 availableToBuy = MAX_PURCHASABLE - token.totalSupply();
         uint256 pricePerToken = _getCurrentPrice();
         uint256 maxTokensBuyable = netValue / pricePerToken;
         uint256 finalAmount = maxTokensBuyable > availableToBuy ? availableToBuy : maxTokensBuyable;
 
-        if (finalAmount = 0) {
+        if (finalAmount == 0) {
             revert NotEnoughFunds();
         }
 
@@ -102,7 +105,7 @@ contract BondingCurve is ReentrancyGuard {
             require(success, "ETH return failed");
         }
 
-        if (token.totalSupply() = MAX_PURCHASABLE) {
+        if (token.totalSupply() == MAX_PURCHASABLE) {
             _setMigrationOn();
         }
 
@@ -133,10 +136,10 @@ contract BondingCurve is ReentrancyGuard {
         (bool success, ) = feeTaker.call(abi.encodeWithSignature("addToQueueForMigration()"));
         require(success, "Migration failed");
 
-        emit AwaitingForMigration(address(token), tokenId, block.timestamp);
+        emit AwaitingForMigration(address(token), block.timestamp);
     }
 
-    function migrateToDex() external {
+    /* function migrateToDex() external {
         //creating and initializing pool
         uint24 poolFee = 5000;
         uint160 sqrtPriceX96 =  (MAX_PURCHASABLE / address(this).balance) ** 0.5;
@@ -147,12 +150,13 @@ contract BondingCurve is ReentrancyGuard {
         uint256 amount0ToMint = LIQUIDITY_RESERVE;
         uint256 amount1ToMint = address(this).balance / (MAX_PURCHASABLE / LIQUIDITY_RESERVE);
 
-        IWrappedNativeToken.deposit{value: amount1ToMint}();
+        IWrappedNativeToken(WETH9).deposit{value: amount1ToMint}();
         token.mint(address(this), amount0ToMint);
 
         TransferHelper.safeApprove(address(token), UNISWAP_NFT_POS_MANAGER, amount0ToMint);
         TransferHelper.safeApprove(WETH9, UNISWAP_NFT_POS_MANAGER, amount1ToMint);
-        INonfungiblePositionManager(UNISWAP_NFT_POS_MANAGER).MintParams memory params =
+            
+        (tokenId, , , ) = INonfungiblePositionManager(UNISWAP_NFT_POS_MANAGER).mint(
             INonfungiblePositionManager(UNISWAP_NFT_POS_MANAGER).MintParams({
                 token0: token,
                 token1: WETH9,
@@ -165,14 +169,14 @@ contract BondingCurve is ReentrancyGuard {
                 amount1Min: 0,
                 recipient: feeTaker,
                 deadline: block.timestamp
-            });
-        (tokenId, , , ) = INonfungiblePositionManager(UNISWAP_NFT_POS_MANAGER).mint(params);
+            }));
 
-        payable(address(feeTaker)).transfer(address(this).balance);
+        payable(feeTaker).transfer(address(this).balance);
 
         emit MigrationToDEX(address(token), tokenId, block.timestamp);
     }
-
+    */
+   //@audit correct calculating price
     /// @dev calculating e^x with Taylor series
     /// @param x any uint
     /// @return y = e^x
