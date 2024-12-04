@@ -19,7 +19,7 @@ contract BondingCurve is ReentrancyGuard {
     address public constant UNISWAP_FACTORY = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
 
     /// @dev Constants for exponential curve formula: y = 0.000001 * e^(0.00000001x)
-    uint256 public constant BASE_FACTOR = 1e12;       // 0.000001 * 1e18
+    uint256 public constant BASE_FACTOR = 4e10;       //@note initial price
     uint256 public constant EXP_FACTOR = 1e10;        // 0.00000001 * 1e18
     uint256 public constant MAX_SUPPLY = 1e9;         
     uint256 public constant LIQUIDITY_RESERVE = 2e8;  
@@ -55,7 +55,8 @@ contract BondingCurve is ReentrancyGuard {
         uint256 fee = msg.value / 100;
         uint256 netValue = msg.value - fee;
 
-        payable(feeTaker).transfer(fee);
+        (bool success0, ) = feeTaker.call{value: fee}("");
+        require(success0, "Buy failed");
 
         uint256 availableToBuy = MAX_PURCHASABLE - token.totalSupply();
         uint256 finalAmount = amount > availableToBuy ? availableToBuy : amount;
@@ -83,7 +84,8 @@ contract BondingCurve is ReentrancyGuard {
         uint256 fee = msg.value / 100;
         uint256 netValue = msg.value - fee;
 
-        payable(feeTaker).transfer(fee);
+        (bool success0, ) = feeTaker.call{value: fee}("");
+        require(success0, "Buy failed");
 
         uint256 availableToBuy = MAX_PURCHASABLE - token.totalSupply();
         uint256 pricePerToken = _getCurrentPrice();
@@ -174,6 +176,7 @@ contract BondingCurve is ReentrancyGuard {
         emit MigrationToDEX(address(token), tokenId, block.timestamp);
     }
     */
+   //@audit correct calculating price
     /// @dev calculating e^x with Taylor series
     /// @param x any uint
     /// @return y = e^x

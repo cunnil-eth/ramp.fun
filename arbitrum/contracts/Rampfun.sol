@@ -3,7 +3,7 @@ pragma solidity ^0.8.27;
 pragma abicoder v2;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import '@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol';
+import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 //import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol';
 import "./RampToken.sol";
 
@@ -28,7 +28,7 @@ contract Rampfun is Ownable, IERC721Receiver {
     function deployToken(string calldata _name, string calldata _ticker) public payable {
         RampToken token = new RampToken{value: msg.value}(_name, _ticker);
 
-        bondingCurves[token.bondingCurve.address] = CurveStatus.Created;
+        bondingCurves[address(token.bondingCurve())] = CurveStatus.Created;
 
         emit TokenDeployed(msg.sender, address(token), _name, _ticker);
     }
