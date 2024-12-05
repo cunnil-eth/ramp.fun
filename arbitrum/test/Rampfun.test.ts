@@ -55,7 +55,7 @@ describe("Rampfun", function() {
 
         expect(curveAddress).to.eq(await token.bondingCurve());
     })
-    //@todo check in remix whether token balance changes
+
     it("allows a token deployer to make initial buy", async function () {
         const { rampfun, deployer } = await loadFixture(deploy);
 
@@ -77,7 +77,6 @@ describe("Rampfun", function() {
         const curve = await BondingCurve__factory.connect(curveAddress, deployer);
         
         await expect(tokenDeployTx).to.changeEtherBalances([deployer, curve, rampfun], [-wei, wei - fee, fee]);
-        //await expect(tokenDeployTx).to.changeTokenBalance(token, deployer, await token.totalSupply());
         await expect(tokenDeployTx).to.emit(rampfun, "TokenDeployed").withArgs(
             deployer, tokenAddress, _name, _symbol
         );
