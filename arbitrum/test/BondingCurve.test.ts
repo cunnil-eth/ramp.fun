@@ -16,6 +16,63 @@ describe("BondingCurve", function() {
     }
 
     it("allows to buy a token", async function () {
+        const { rampfun, token, curve, buyer } = await deployToken();
+
+        const etherAmount = 0.001;
+        const wei = ethers.parseEther(etherAmount.toString());
+        const fee = ethers.parseEther((etherAmount/100).toString());
+
+        const buyTx = await curve.buy({value: wei});
+        
+        await expect(buyTx).to.changeEtherBalances([buyer, curve, rampfun], [-wei, wei - fee, fee]);
+        await expect(buyTx).to.changeTokenBalance(token, buyer, await token.totalSupply());
+        await expect(buyTx).to.emit(curve, "TokenBuy").withArgs(
+            token.getAddress(), buyer, await token.totalSupply()
+        );
+        await expect(curve.buy({value: 0})).to.be.revertedWithCustomError(curve, "NotEnoughFunds")
+    })
+
+    it("allows to sell a token", async function () {
+        const { rampfun, token, curve, buyer } = await deployToken();
+
+        const initialBalance = await ethers.provider.getBalance(buyer);
+        const etherAmount = 0.001;
+        const wei = ethers.parseEther(etherAmount.toString());
+
+        await curve.buy({value: wei});
+
+        const tokenBalance = await token.totalSupply();
+
+        const sellTx = await curve.sell(await token.totalSupply());
+
+        expect(await ethers.provider.getBalance(buyer)).to.lt(initialBalance);
+        expect(await ethers.provider.getBalance(rampfun)).to.gt(0);
+        expect(await ethers.provider.getBalance(curve)).to.eq(0);
+        await expect(sellTx).to.changeTokenBalance(token, buyer, -tokenBalance);
+        await expect(sellTx).to.emit(curve, "TokenSell").withArgs(
+            token.getAddress(), buyer, tokenBalance
+        );
+        await expect(curve.sell(1)).to.be.revertedWithCustomError(curve, "NotEnoughFunds");
+    })
+
+    it("can be migrated", async function () {
+        const { rampfun, token, curve } = await deployToken();
+
+        const etherAmount = 100;
+        const wei = ethers.parseEther(etherAmount.toString());
+
+        const buyTx = await curve.buy({value: wei});
+        
+        // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+        expect(await curve.tokenMigrated()).to.be.true;
+        expect(await rampfun.awaitingForMigration(0)).to.eq(curve);
+        expect(await ethers.provider.getBalance(curve)).to.not.eq(wei);
+        await expect(buyTx).to.emit(curve, "AwaitingForMigration").withArgs(
+            token, (await ethers.provider.getBlock(await ethers.provider.getBlockNumber()))?.timestamp
+        )
+    })
+
+    async function deployToken() {
         const { rampfun, deployer, buyer } = await loadFixture(deploy);
 
         const _name = "TRATATA";
@@ -32,19 +89,8 @@ describe("BondingCurve", function() {
 
         const curve = await BondingCurve__factory.connect(curveAddress, buyer);
 
-        const etherAmount = 0.001;
-        const wei = ethers.parseEther(etherAmount.toString());
-        const fee = ethers.parseEther((etherAmount/100).toString());
-
-        const buyTx = await curve["buy()"]({value: wei});
-
-        await expect(buyTx).to.changeEtherBalances([buyer, curve, rampfun], [-wei, wei - fee, fee]);
-        await expect(buyTx).to.changeTokenBalance(token, buyer, await token.totalSupply());
-        await expect(buyTx).to.emit(curve, "TokenBuy").withArgs(
-            tokenAddress, buyer, await token.totalSupply()
-        );
-        expect(curve["buy(uint256)"](1000)).to.be.revertedWithCustomError(curve, "NotEnoughFunds")
-    })
+        return { rampfun, token, curve, buyer }
+    }
 
     async function precomputeAddress(rampfun : BaseContract, nonce = 1) : Promise<string> {
         return ethers.getCreateAddress({

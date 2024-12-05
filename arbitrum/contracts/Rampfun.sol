@@ -11,7 +11,7 @@ contract Rampfun is Ownable, IERC721Receiver {
     address constant public UNISWAP_NFT_POS_MANAGER = 0xC36442b4a4522E871399CD717aBDD847Ab11FE88;
 
     enum CurveStatus{ NotExisting, Created, Migrated }
-    mapping(address => CurveStatus) bondingCurves;
+    mapping(address => CurveStatus) public bondingCurves;
     address[] public awaitingForMigration;
 
     event TokenDeployed(address _deployer, address _token, string _name, string _ticker);
