@@ -29,8 +29,8 @@ describe("RampToken", function() {
 
         const token = await RampToken__factory.connect(tokenAddress, deployer);
 
-        expect(token.mint(deployer, 10000)).to.be.revertedWithCustomError(token, "UnauthorizedAccess");
-        expect(token.burn(deployer, 10000)).to.be.revertedWithCustomError(token, "UnauthorizedAccess");
+        await expect(token.mint(deployer, 10000)).to.be.revertedWithCustomError(token, "UnauthorizedAccess");
+        await expect(token.burn(deployer, 10000)).to.be.revertedWithCustomError(token, "UnauthorizedAccess");
     })
 
     async function precomputeAddress(rampfun : BaseContract, nonce = 1) : Promise<string> {

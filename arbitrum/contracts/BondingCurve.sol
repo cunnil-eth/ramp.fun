@@ -39,16 +39,11 @@ contract BondingCurve is ReentrancyGuard {
         token = _token;
     }
 
-    //@audit cannot transfer value to internal function
-    receive() external payable {
-        // buy{value: msg.value}(); 
-    }
-
     modifier notMigrated() {
         require(!tokenMigrated, "The token has migrated");
         _;
     }
-
+    /*
     function buy(uint256 amount) external payable nonReentrant notMigrated {
         require(amount > 0, "Amount must be greater than 0");
         
@@ -79,13 +74,10 @@ contract BondingCurve is ReentrancyGuard {
 
         emit TokenBuy(address(token), msg.sender, finalAmount);
     }
-
+    */
     function buy() external payable nonReentrant notMigrated {
         uint256 fee = msg.value / 100;
         uint256 netValue = msg.value - fee;
-
-        (bool success0, ) = feeTaker.call{value: fee}("");
-        require(success0, "Buy failed");
 
         uint256 availableToBuy = MAX_PURCHASABLE - token.totalSupply();
         uint256 pricePerToken = _getCurrentPrice();
@@ -97,6 +89,14 @@ contract BondingCurve is ReentrancyGuard {
         }
 
         uint256 cost = _calculatePrice(token.totalSupply(), finalAmount);
+
+        if (maxTokensBuyable > availableToBuy) {
+            fee = cost / 100;
+            netValue = msg.value - fee;
+        }
+
+        (bool success0, ) = feeTaker.call{value: fee}("");
+        require(success0, "Buy failed");
 
         //@note implementation of initial deployer's buy
         if (msg.sender == feeTaker) {

@@ -32,6 +32,7 @@ describe("Rampfun", function() {
         
         expect(_name).to.eq(await token.name());
         expect(_symbol).to.eq(await token.symbol());
+        expect(deployer).to.eq(await token.deployer());
         await expect(tokenDeployTx).to.emit(rampfun, "TokenDeployed").withArgs(
             deployer, tokenAddress, _name, _symbol
         );
@@ -52,18 +53,18 @@ describe("Rampfun", function() {
 
         const curveAddress = await precomputeAddress(token);
 
-        const curve = await BondingCurve__factory.connect(curveAddress, deployer);
-
-        expect(curveAddress).to.eq(await curve.getAddress());
+        expect(curveAddress).to.eq(await token.bondingCurve());
     })
-    //@todo more expect on balance change
+    //@todo check in remix whether token balance changes
     it("allows a token deployer to make initial buy", async function () {
         const { rampfun, deployer } = await loadFixture(deploy);
 
         const _name = "TRATATA";
         const _symbol = "TRA";
-        const etherAmount = ethers.parseEther("0.001");
-        const tokenDeployTx = await rampfun.connect(deployer).deployToken(_name, _symbol, {value: etherAmount});
+        const etherAmount = 0.001;
+        const wei = ethers.parseEther(etherAmount.toString());
+        const fee = ethers.parseEther((etherAmount/100).toString());
+        const tokenDeployTx = await rampfun.connect(deployer).deployToken(_name, _symbol, {value: wei});
 
         await tokenDeployTx.wait();
 
@@ -75,13 +76,14 @@ describe("Rampfun", function() {
 
         const curve = await BondingCurve__factory.connect(curveAddress, deployer);
         
+        await expect(tokenDeployTx).to.changeEtherBalances([deployer, curve, rampfun], [-wei, wei - fee, fee]);
+        //await expect(tokenDeployTx).to.changeTokenBalance(token, deployer, await token.totalSupply());
         await expect(tokenDeployTx).to.emit(rampfun, "TokenDeployed").withArgs(
             deployer, tokenAddress, _name, _symbol
         );
         await expect(tokenDeployTx).to.emit(curve, "TokenBuy").withArgs(
             tokenAddress, deployer, await token.totalSupply()
         );
-        await expect(tokenDeployTx).to.changeEtherBalance(deployer, -etherAmount);
     })
 
     it("allows withdrawal for the owner", async function () {
@@ -93,8 +95,24 @@ describe("Rampfun", function() {
             value: etherAmount,
         })
 
-        expect(rampfun.connect(deployer).withdraw()).to.be.revertedWithCustomError(rampfun, "OwnableUnauthorizedAccount");
-        expect(await rampfun.withdraw()).to.changeEtherBalances([owner, rampfun], [etherAmount, -etherAmount]);
+        await expect(rampfun.connect(deployer).withdraw()).to.be.revertedWithCustomError(rampfun, "OwnableUnauthorizedAccount");
+        await expect(await rampfun.withdraw()).to.changeEtherBalances([owner, rampfun], [etherAmount, -etherAmount]);
+    })
+
+    it("should add a bonding curve to a mapping", async function () {
+        const { rampfun, deployer } = await loadFixture(deploy);
+
+        const _name = "TRATATA";
+        const _symbol = "TRA";
+        const tokenDeployTx = await rampfun.connect(deployer).deployToken(_name, _symbol);
+
+        await tokenDeployTx.wait();
+
+        const tokenAddress = await precomputeAddress(rampfun);
+
+        const token = await RampToken__factory.connect(tokenAddress, deployer);
+
+        expect(await rampfun.bondingCurves(await token.bondingCurve())).to.eq(1);
     })
 
     async function precomputeAddress(rampfun : BaseContract, nonce = 1) : Promise<string> {
