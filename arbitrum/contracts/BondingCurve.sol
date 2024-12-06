@@ -4,7 +4,6 @@ pragma solidity ^0.8.27;
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./interfaces/Aerodrome/IRouter.sol";
 import "./interfaces/Aerodrome/IPoolFactory.sol";
-import "./interfaces/IWrappedNativeToken.sol";
 import "./libraries/TransferHelper.sol";
 import "./RampToken.sol";
 
