@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
-pragma abicoder v2;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
-//import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol';
+import "./interfaces/Aerodrome/IPool.sol";
 import "./RampToken.sol";
 
 contract Rampfun is Ownable, IERC721Receiver {
@@ -52,14 +51,8 @@ contract Rampfun is Ownable, IERC721Receiver {
         return this.onERC721Received.selector;
     }
 
-    /*function collectAllFees(uint256 tokenId) external onlyOwner {
-        (amount0, amount1) = INonfungiblePositionManager.collect(
-            INonfungiblePositionManager(UNISWAP_NFT_POS_MANAGER).CollectParams({
-                tokenId: tokenId,
-                recipient: owner(),
-                amount0Max: type(uint128).max,
-                amount1Max: type(uint128).max
-            }));
+    function collectAllFees(address _addressPool) external onlyOwner {
+        IPool(_addressPool).claimFees();
     }
     
     function migrateToDexBatch() external {
@@ -70,5 +63,5 @@ contract Rampfun is Ownable, IERC721Receiver {
             }
         }
     }
-    */
+    
 }

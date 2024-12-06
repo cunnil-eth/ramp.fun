@@ -98,6 +98,18 @@ describe("Rampfun", function() {
         await expect(await rampfun.withdraw()).to.changeEtherBalances([owner, rampfun], [etherAmount, -etherAmount]);
     })
 
+    it("allows ERC721 to be received", async function () {
+        const { rampfun } = await loadFixture(deploy);
+
+        expect(ethers.id("onERC721Received(address,address,uint256,bytes)").slice(0, 10)).to.eq(
+            await rampfun.onERC721Received(
+                ethers.ZeroAddress, 
+                ethers.ZeroAddress, 
+                0, 
+                ethers.ZeroHash
+        ));
+    })
+
     it("should add a bonding curve to a mapping", async function () {
         const { rampfun, deployer } = await loadFixture(deploy);
 
@@ -113,6 +125,9 @@ describe("Rampfun", function() {
 
         expect(await rampfun.bondingCurves(await token.bondingCurve())).to.eq(1);
     })
+
+    //@todo migrateToDexBatch() needs to be tested
+    //@todo collectAllFees() needs to be tested
 
     async function precomputeAddress(rampfun : BaseContract, nonce = 1) : Promise<string> {
         return ethers.getCreateAddress({

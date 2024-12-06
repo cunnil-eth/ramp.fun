@@ -1,5 +1,5 @@
 import { BaseContract } from "ethers";
-import { loadFixture,/* time, SignerWithAddress, anyValue,*/ ethers, expect } from "./setup";
+import { loadFixture, ethers, expect } from "./setup";
 import { RampToken__factory } from "../typechain-types";
 
 describe("RampToken", function() {

@@ -1,5 +1,5 @@
 import { BaseContract } from "ethers";
-import { loadFixture,/* time, SignerWithAddress, anyValue,*/ ethers, expect } from "./setup";
+import { loadFixture, ethers, expect } from "./setup";
 import { BondingCurve__factory, RampToken__factory } from "../typechain-types";
 
 describe("BondingCurve", function() {
@@ -18,7 +18,7 @@ describe("BondingCurve", function() {
     it("allows to buy a token", async function () {
         const { rampfun, token, curve, buyer } = await deployToken();
 
-        const etherAmount = 0.001;
+        const etherAmount = 1;
         const wei = ethers.parseEther(etherAmount.toString());
         const fee = ethers.parseEther((etherAmount/100).toString());
 
@@ -98,4 +98,5 @@ describe("BondingCurve", function() {
             nonce
         })
     }
+        
 })
