@@ -15,9 +15,9 @@ contract BondingCurve is ReentrancyGuard {
     address public constant AERODROME_ROUTER = 0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43;
     address public constant AERODROME_POOL_FACTORY = 0x420DD381b31aEf6683db6B902084cB0FFECe40Da;
 
-    /// @dev Constants for exponential curve formula: y = a * e^(bx)
+    /// @dev Constants for _exponential curve formula: y = a * e^(bx)
     uint256 public constant BASE_FACTOR = 1e10;       //@note initial price
-    uint256 public constant EXP_FACTOR = 2023568874961606700;        
+    uint256 public constant _EXP_FACTOR = 3e9;        
     uint256 public constant MAX_SUPPLY = 1e9;         
     uint256 public constant LIQUIDITY_RESERVE = 2e8;  
     uint256 public constant MAX_PURCHASABLE = 8e8; 
@@ -143,13 +143,13 @@ contract BondingCurve is ReentrancyGuard {
     /// @param x any uint
     /// @return y = e^x
     function _exp(uint256 x) internal pure returns (uint256) {
-        uint256 result = PRECISION;
-        uint256 xi = PRECISION;
+        uint256 result = 1 * PRECISION;
+        uint256 xi = 1 * PRECISION;
         uint256 fact = 1;
         
-        for (uint256 i = 1; i <= 5; i++) {
+        for (uint256 i = 1; i <= 10; i++) {
             fact *= i;
-            xi = (xi * x) / PRECISION;
+            xi = xi * x;
             result += xi / fact;
         }
         
@@ -158,8 +158,8 @@ contract BondingCurve is ReentrancyGuard {
 
     function _getPriceAtSupply(uint256 supply) internal pure returns (uint256) {
         uint256 x = supply - (supply % 1e7);
-        uint256 expValue = _exp((EXP_FACTOR * x) / PRECISION);
-        return (BASE_FACTOR * expValue) / PRECISION;
+        uint256 _expValue = _exp((_EXP_FACTOR * x) / PRECISION);
+        return (BASE_FACTOR * _expValue) / PRECISION;
     }
 
     function _calculateCostAndAmount(uint256 _value) internal view returns (uint256, uint256) {

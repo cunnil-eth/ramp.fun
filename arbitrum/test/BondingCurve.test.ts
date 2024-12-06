@@ -18,7 +18,7 @@ describe("BondingCurve", function() {
     it("allows to buy a token", async function () {
         const { rampfun, token, curve, buyer } = await deployToken();
 
-        const etherAmount = 0.001;
+        const etherAmount = 1;
         const wei = ethers.parseEther(etherAmount.toString());
         const fee = ethers.parseEther((etherAmount/100).toString());
 
@@ -98,4 +98,5 @@ describe("BondingCurve", function() {
             nonce
         })
     }
+        
 })
