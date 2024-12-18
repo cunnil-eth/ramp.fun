@@ -9,7 +9,7 @@ The Solidty component consists of three essential contracts:
   
 3. **BondingCurve** - Functions as a liquidity pool but with dynamic price curve. Users can buy and sell tokens before the token migration event. This event occurs after 80% of 1b tokens have been purchased. After the migration the token can be swapped on the DEX.
 ***
-### Tests
 
----
-## Typesctipt
+### Test coverage
+![Test coverage](https://github.com/user-attachments/assets/aaf9f5b7-3413-48d0-b63b-406fee3f11a1)
+
