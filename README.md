@@ -11,5 +11,6 @@ The Solidty component consists of three essential contracts:
 ***
 
 ### Test coverage
-![Test coverage](https://github.com/user-attachments/assets/aaf9f5b7-3413-48d0-b63b-406fee3f11a1)
+![Test coverage](https://github.com/user-attachments/assets/5f4a90ca-39e3-4b3f-a7a6-948b1f968f5e)
+
 
